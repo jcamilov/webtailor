@@ -34,7 +34,7 @@ function WebcamViewer() {
 
     //llenar el fondo con negro. Only overwrite existing pixels.
     canvasCtx.globalCompositeOperation = "source-in";
-    canvasCtx.fillStyle = "#FFFFFF";
+    canvasCtx.fillStyle = "#000000";
     canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
     // drawing mask, landmarks and connectors
@@ -74,6 +74,8 @@ function WebcamViewer() {
           endImageData.data[i + 2] = 0;
         }
       }
+      console.log("Image data array is:");
+      console.log(endImageData.data);
 
       // drawing manipulation over the mask
       outputCanvasRef.current.width = width;

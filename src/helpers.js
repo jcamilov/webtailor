@@ -23,3 +23,6 @@ export const smooth = (array, variance) => {
   }
   return smoothed;
 };
+
+// Draw a path on a canvas
+export const drawPath = (canvasCtx, x, y) => {};

@@ -23,7 +23,7 @@ function App() {
           {processing ? "Stop" : "Start"} camera
         </button>
         {processing ? <WebcamViewer /> : <p>It takes 5 seconds to load</p>}
-        <SingleImageViewer />
+        {/* <SingleImageViewer /> */}
       </div>
     </CameraProvider>
   );

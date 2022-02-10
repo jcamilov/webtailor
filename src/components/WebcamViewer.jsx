@@ -4,6 +4,7 @@ import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
 import * as cam from "@mediapipe/camera_utils";
 import CameraContext from "../contexts/CameraContext";
+import { drawContourOnCanvas } from "../helpers";
 
 function WebcamViewer() {
   // states and references
@@ -15,7 +16,6 @@ function WebcamViewer() {
 
   // processing main function
   function onResults(results) {
-    console.log(results);
     const width = webcamRef.current.video.videoWidth;
     const height = webcamRef.current.video.videoHeight;
     canvasRef.current.width = width;
@@ -61,31 +61,14 @@ function WebcamViewer() {
       });
       canvasCtx.restore();
 
-      // manipulate imagebitmap
-      const endImageData = canvasCtx.getImageData(0, 0, width, height);
-      for (var i = 0; i < endImageData.data.length; i++) {
-        if (
-          endImageData.data[i] != 255 &&
-          endImageData.data[i + 1] != 255 &&
-          endImageData.data[i + 2] != 255
-        ) {
-          endImageData.data[i] = 0;
-          endImageData.data[i + 1] = 0;
-          endImageData.data[i + 2] = 0;
-        }
-      }
-      console.log("Image data array is:");
-      console.log(endImageData.data);
-
-      // drawing manipulation over the mask
+      // drawing contour over the mask
       outputCanvasRef.current.width = width;
       outputCanvasRef.current.height = height;
-      const canvasElement2 = outputCanvasRef.current;
-      const outputCanvasCtx = canvasElement2.getContext("2d");
-      outputCanvasCtx.save();
-      outputCanvasCtx.clearRect(0, 0, width, height);
+      // const canvasElement2 = outputCanvasRef.current;
+      // const outputCanvasCtx = canvasElement2.getContext("2d");
+      // outputCanvasCtx.save();
 
-      outputCanvasCtx.putImageData(endImageData, 0, 0);
+      drawContourOnCanvas(canvasRef, outputCanvasRef);
     }
   }
 

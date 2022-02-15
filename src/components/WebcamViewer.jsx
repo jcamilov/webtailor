@@ -4,7 +4,7 @@ import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
 import * as cam from "@mediapipe/camera_utils";
 import CameraContext from "../contexts/CameraContext";
-import { drawContourOnCanvas } from "../helpers";
+import { drawContourOnCanvas, checkCorrectPosition } from "../helpers";
 
 function WebcamViewer() {
   // states and references
@@ -64,11 +64,10 @@ function WebcamViewer() {
       // drawing contour over the mask
       outputCanvasRef.current.width = width;
       outputCanvasRef.current.height = height;
-      // const canvasElement2 = outputCanvasRef.current;
-      // const outputCanvasCtx = canvasElement2.getContext("2d");
-      // outputCanvasCtx.save();
-
       drawContourOnCanvas(canvasRef, outputCanvasRef);
+
+      // draw red or green border according to wrong or right position
+      checkCorrectPosition(results, outputCanvasRef);
     }
   }
 

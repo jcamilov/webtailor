@@ -3,6 +3,7 @@ import CameraContext, { CameraProvider } from "./contexts/CameraContext";
 import { useContext } from "react";
 import WebcamViewer from "./components/WebcamViewer";
 import SingleImageViewer from "./components/SingleImageViewer";
+import WebcamBox from "./components/WebcamBox";
 
 function App() {
   const { processing, setTheProcessing } = useContext(CameraContext);
@@ -22,8 +23,9 @@ function App() {
         <button className="btn btn-neutral" type="button" onClick={onClick}>
           {processing ? "Stop" : "Start"} camera
         </button>
-        {processing ? <WebcamViewer /> : <p>It takes 5 seconds to load</p>}
+        {/* {processing ? <WebcamViewer /> : <p>It takes 5 seconds to load</p>} */}
         {/* <SingleImageViewer /> */}
+        <WebcamBox />
       </div>
     </CameraProvider>
   );

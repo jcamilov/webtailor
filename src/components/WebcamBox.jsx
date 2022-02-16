@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
-import { checkCorrectPosition } from "../helpers";
-import silueta from "../assets/silueta.png";
+import { checkCorrectPosition, getMeasures } from "../helpers";
+import ghost from "../assets/ghost.png";
 import hombre from "../assets/hombre.jpg";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
@@ -16,7 +16,8 @@ function WebcamBox({ processing }) {
 
   // Position range for every POI (indicates the full body is visible and in position)
   // [xMin , xMax , yMin , yMax]
-  const handsMaxY = 0.18;
+  const handsRange = [0.35, 0.65];
+  const noseMaxY = 0.22;
   const feetMinY = 0.8;
 
   // processing main function
@@ -24,9 +25,9 @@ function WebcamBox({ processing }) {
     const width = webcamRef.current.video.videoWidth;
     const height = webcamRef.current.video.videoHeight;
 
-    setCorrectPosition((el) => {
-      checkCorrectPosition(results, canvasRef);
-    });
+    // setCorrectPosition(checkCorrectPosition(results, canvasRef));
+
+    getMeasures(results);
 
     // draw right or wrong position
     // const canvasElement = canvasRef.current;
@@ -40,48 +41,51 @@ function WebcamBox({ processing }) {
     // canvasCtx.fillText(correctPosition ? "OK" : "WRONG POSITION", 50, 90);
 
     // draw the mask and/or silhouette
-    // silhouetteRef.current.width = width;
-    // silhouetteRef.current.height = height;
-    // const canvasElement = silhouetteRef.current;
-    // const silhouetteCtx = canvasElement.getContext("2d");
-    // silhouetteCtx.save();
-    // silhouetteCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    // silhouetteCtx.drawImage(
-    //   results.segmentationMask,
-    //   0,
-    //   0,
-    //   canvasElement.width,
-    //   canvasElement.height
-    // );
+    const canvasElement = canvasRef.current;
+    const w = canvasRef.current.width;
+    const h = canvasRef.current.height;
+    canvasElement.width = w;
+    canvasElement.height = h;
+    const canvasCtx = canvasElement.getContext("2d");
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(
+      results.segmentationMask,
+      0,
+      0,
+      canvasElement.width,
+      canvasElement.height
+    );
 
-    // //llenar el fondo con negro. Only overwrite existing pixels.
-    // silhouetteCtx.globalCompositeOperation = "source-in";
-    // silhouetteCtx.fillStyle = "#000000";
-    // silhouetteCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    //llenar el fondo con negro. Only overwrite existing pixels.
+    canvasCtx.globalCompositeOperation = "source-in";
+    canvasCtx.fillStyle = "#000000";
+    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // // drawing mask, landmarks and connectors
-    // if (results.poseLandmarks) {
-    //   // Draw segmentation mask (Only overwrite missing pixels)
-    //   silhouetteCtx.globalCompositeOperation = "destination-atop";
-    //   silhouetteCtx.drawImage(
-    //     results.segmentationMask,
-    //     0,
-    //     0,
-    //     canvasElement.width,
-    //     canvasElement.height
-    //   );
+    // drawing mask, landmarks and connectors
+    if (results.poseLandmarks) {
+      // Draw segmentation mask (Only overwrite missing pixels)
+      canvasCtx.globalCompositeOperation = "destination-atop";
+      canvasCtx.drawImage(
+        results.segmentationMask,
+        0,
+        0,
+        canvasElement.width,
+        canvasElement.height
+      );
 
-    //   // Draw landmarks and connectors
-    //   silhouetteCtx.globalCompositeOperation = "source-over";
-    //   drawConnectors(silhouetteCtx, results.poseLandmarks, POSE_CONNECTIONS, {
-    //     color: "#00FF00",
-    //     lineWidth: 2,
-    //   });
-    //   drawLandmarks(silhouetteCtx, results.poseLandmarks, {
-    //     color: "#FF0000",
-    //     lineWidth: 1,
-    //   });
-    //   silhouetteCtx.restore();
+      // Draw landmarks and connectors
+      canvasCtx.globalCompositeOperation = "source-over";
+      drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
+        color: "#00FF00",
+        lineWidth: 2,
+      });
+      drawLandmarks(canvasCtx, results.poseLandmarks, {
+        color: "#FF0000",
+        lineWidth: 1,
+      });
+      canvasCtx.restore();
+    }
 
     // // drawing contour over the mask
     // outputCanvasRef.current.width = width;
@@ -103,9 +107,9 @@ function WebcamBox({ processing }) {
       canvasElement.width = w;
       canvasElement.height = h;
       const canvasCtx = canvasElement.getContext("2d");
-      canvasCtx.globalAlpha = 0.4;
+      canvasCtx.globalAlpha = 0.7;
       const img = new Image();
-      img.src = silueta;
+      img.src = ghost;
       img.onload = () => {
         canvasCtx.drawImage(
           img,
@@ -120,13 +124,24 @@ function WebcamBox({ processing }) {
       canvasCtx.strokeStyle = "blue";
       canvasCtx.lineWidth = 3;
       canvasCtx.beginPath();
-      canvasCtx.moveTo(0, handsMaxY * h);
-      canvasCtx.lineTo(w, handsMaxY * h);
+      canvasCtx.moveTo(0, noseMaxY * h);
+      canvasCtx.lineTo(w, noseMaxY * h);
       canvasCtx.stroke();
 
       canvasCtx.beginPath();
       canvasCtx.moveTo(0, feetMinY * h);
       canvasCtx.lineTo(w, feetMinY * h);
+      canvasCtx.stroke();
+
+      canvasCtx.strokeStyle = "red";
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(handsRange[0] * w, 0);
+      canvasCtx.lineTo(handsRange[0] * w, h);
+      canvasCtx.stroke();
+
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(handsRange[1] * w, 0);
+      canvasCtx.lineTo(handsRange[1] * w, h);
       canvasCtx.stroke();
 
       // Set the mediapipe segmentation/pose model

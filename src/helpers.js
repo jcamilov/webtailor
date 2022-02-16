@@ -117,7 +117,8 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   // const rFootRange = [0.49, 0.56, 0.89, 0.98];
 
   // reference position for hands (nose) and feet inside the screen
-  const handsMaxY = 0.18;
+  const handsRange = [0.35, 0.65];
+  const noseMaxY = 0.22;
   const feetMinY = 0.8;
 
   // to draw a colored border (doesn't work, it replaces the ghost)
@@ -135,21 +136,56 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
 
   // if all hands, nose and feet are on screen, check their position to mimic the ghost
   if (
-    leftHand.visibility < 0.8 ||
-    rightHand.visibility < 0.8 ||
-    leftFoot.visibility < 0.8 ||
-    rightFoot.visibility < 0.8 ||
-    nose.visibility < 0.8
+    leftHand.visibility < 0.7 ||
+    rightHand.visibility < 0.7 ||
+    leftFoot.visibility < 0.7 ||
+    rightFoot.visibility < 0.7 ||
+    nose.visibility < 0.7
   ) {
   } else if (
     //check for positions
-    leftHand.y < handsMaxY &&
-    rightHand.y < handsMaxY &&
-    nose.y > handsMaxY * 1.1 &&
+    handsRange[0] < rightHand.x &&
+    rightHand.x < 0.5 &&
+    0.5 < leftHand.x &&
+    leftHand.x < handsRange[1] &&
+    nose.y < noseMaxY &&
     leftFoot.y > feetMinY &&
     rightFoot.y > feetMinY
   ) {
+    console.log("Right position");
     return true;
   }
   return false;
+};
+
+export const getMeasures = (results) => {
+  // TO FIX: No me funcionar con reduce... NaN
+  // const eyesAverage =
+  //   results.poseLandmarks.slice(1, 7).reduce((prev, acc) => prev.y + acc.y, 0) /
+  //   6;
+
+  // Ratio height/eyes: Distance from eyes to top of head = height/14
+  // So, heigth goes from toes to eyes +
+  const eyesAverage =
+    (results.poseLandmarks[1].y +
+      results.poseLandmarks[2].y +
+      results.poseLandmarks[3].y +
+      results.poseLandmarks[4].y +
+      results.poseLandmarks[5].y +
+      results.poseLandmarks[6].y) /
+    6;
+  const anklesAverage =
+    (results.poseLandmarks[29].y + results.poseLandmarks[30].y) / 2;
+
+  const height = (anklesAverage - eyesAverage) * 1.07;
+  // El 1.07 sale de adicionar la distancia que hay entre los ojos y la cima de la cabeza.
+
+  const str = `Altura: ${height.toFixed(2)}, De mano a mano ${(
+    (results.poseLandmarks[19].x - results.poseLandmarks[20].x) *
+    1.04
+  ).toFixed(2)}`;
+
+  console.log(str);
+
+  return height;
 };

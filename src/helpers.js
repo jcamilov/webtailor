@@ -99,11 +99,10 @@ export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
 
 // check Landmark results to see if person is in place. Draw a red or green rectangle accordingly
 export const checkCorrectPosition = (results, outputCanvasRef) => {
+  if (!results.poseLandmarks) return false;
   const leftHand = results.poseLandmarks[15];
   const rightHand = results.poseLandmarks[16];
   const nose = results.poseLandmarks[0];
-  const leftShoulder = results.poseLandmarks[11];
-  const rightShoulder = results.poseLandmarks[12];
   const leftFoot = results.poseLandmarks[27];
   const rightFoot = results.poseLandmarks[28];
   const w = outputCanvasRef.current.width;
@@ -111,46 +110,30 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
 
   // Position range for every POI (indicates the full body is visible and in position)
   // [xMin , xMax , yMin , yMax]
-  const lHandRange = [0.34, 0.43, 0.03, 0.14];
-  const rHandRange = [0.54, 0.64, 0.03, 0.14];
-  const noseRange = [0.45, 0.51, 0.14, 0.21];
-  const lFootRange = [0.41, 0.49, 0.89, 0.98];
-  const rFootRange = [0.49, 0.56, 0.89, 0.98];
+  // const lHandRange = [0.34, 0.43, 0.03, 0.14];
+  // const rHandRange = [0.54, 0.64, 0.03, 0.14];
+  // const noseRange = [0.45, 0.51, 0.14, 0.21];
+  // const lFootRange = [0.41, 0.49, 0.89, 0.98];
+  // const rFootRange = [0.49, 0.56, 0.89, 0.98];
 
-  const drawBorder = (color) => {
-    const outputCanvasElement = outputCanvasRef.current;
-    outputCanvasElement.width = w;
-    outputCanvasElement.height = h;
-    const ctx = outputCanvasElement.getContext("2d");
-    ctx.globalCompositeOperation = "source-over";
+  // reference position for hands (nose) and feet inside the screen
+  const handsMaxY = 0.18;
+  const feetMinY = 0.8;
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 15;
-    ctx.strokeRect(0, 0, w, h);
+  // to draw a colored border (doesn't work, it replaces the ghost)
+  // const drawBorder = (color) => {
+  //   const outputCanvasElement = outputCanvasRef.current;
+  //   outputCanvasElement.width = w;
+  //   outputCanvasElement.height = h;
+  //   const ctx = outputCanvasElement.getContext("2d");
+  //   ctx.globalCompositeOperation = "destination-atop";
 
-    // draw som correct points
-    ctx.strokeStyle = "blue";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(
-      lHandRange[0] * w,
-      lHandRange[2] * h,
-      (lHandRange[1] - lHandRange[0]) * w,
-      (lHandRange[3] - lHandRange[2]) * h
-    );
-    ctx.strokeRect(
-      rHandRange[0] * w,
-      rHandRange[2] * h,
-      (rHandRange[1] - rHandRange[0]) * w,
-      (rHandRange[3] - rHandRange[2]) * h
-    );
-    ctx.strokeRect(
-      noseRange[0] * w,
-      noseRange[2] * h,
-      (noseRange[1] - noseRange[0]) * w,
-      (noseRange[3] - noseRange[2]) * h
-    );
-  };
+  //   ctx.strokeStyle = color;
+  //   ctx.lineWidth = 15;
+  //   ctx.strokeRect(0, 0, w, h);
+  // };
 
+  // if all hands, nose and feet are on screen, check their position to mimic the ghost
   if (
     leftHand.visibility < 0.8 ||
     rightHand.visibility < 0.8 ||
@@ -160,22 +143,13 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   ) {
   } else if (
     //check for positions
-    lHandRange[0] < leftHand.x < lHandRange[1] &&
-    lHandRange[2] < leftHand.y < lHandRange[3] &&
-    rHandRange[0] < rightHand.x < rHandRange[1] &&
-    rHandRange[2] < rightHand.y < rHandRange[3] &&
-    noseRange[0] < nose.x < noseRange[1] &&
-    noseRange[2] < nose.y < noseRange[3] &&
-    lFootRange[0] < leftFoot.x < lFootRange[1] &&
-    lFootRange[2] < leftFoot.y < lFootRange[3] &&
-    rFootRange[0] < rightFoot.x < rFootRange[1] &&
-    rFootRange[2] < rightFoot.y < rFootRange[3]
+    leftHand.y < handsMaxY &&
+    rightHand.y < handsMaxY &&
+    nose.y > handsMaxY * 1.1 &&
+    leftFoot.y > feetMinY &&
+    rightFoot.y > feetMinY
   ) {
-    // draw green, correct position
-    drawBorder("green");
-    return;
+    return true;
   }
-
-  drawBorder("red");
-  return;
+  return false;
 };

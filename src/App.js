@@ -21,11 +21,11 @@ function App() {
           </span>
         </div>
         <button className="btn btn-neutral" type="button" onClick={onClick}>
-          {processing ? "Stop" : "Start"} camera
+          {processing ? "Stop" : "Start"} processing
         </button>
         {/* {processing ? <WebcamViewer /> : <p>It takes 5 seconds to load</p>} */}
         {/* <SingleImageViewer /> */}
-        <WebcamBox />
+        <WebcamBox processing={processing} />
       </div>
     </CameraProvider>
   );

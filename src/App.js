@@ -1,16 +1,20 @@
 import "./App.css";
 import CameraContext, { CameraProvider } from "./contexts/CameraContext";
 import { useContext } from "react";
-import WebcamViewer from "./components/WebcamViewer";
-import SingleImageViewer from "./components/SingleImageViewer";
 import WebcamBox from "./components/WebcamBox";
+import InputForm from "./components/InputForm";
+import { useEffect } from "react";
 
 function App() {
   const { processing, setTheProcessing } = useContext(CameraContext);
 
-  const onClick = (e) => {
+  const onClickEmpezar = (e) => {
     setTheProcessing();
   };
+
+  useEffect(() => {
+    console.log("iniciando app");
+  }, [processing]);
 
   return (
     <CameraProvider>
@@ -20,12 +24,17 @@ function App() {
             Mediapipe web tailor
           </span>
         </div>
-        <button className="btn btn-neutral" type="button" onClick={onClick}>
+        <InputForm evento={onClickEmpezar} />
+        <button
+          className="btn btn-neutral btn-sm "
+          type="button"
+          onClick={onClickEmpezar}
+        >
           {processing ? "Stop" : "Start"} processing
         </button>
-        {/* {processing ? <WebcamViewer /> : <p>It takes 5 seconds to load</p>} */}
-        {/* <SingleImageViewer /> */}
-        <WebcamBox processing={processing} />
+        <div className="grid grid-cols-1 gap-4">
+          <WebcamBox processing={processing} />
+        </div>
       </div>
     </CameraProvider>
   );

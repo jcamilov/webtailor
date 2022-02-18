@@ -97,12 +97,18 @@ export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
   drawContour(canvasCtx, xRigth, y);
 };
 
-// check Landmark results to see if person is in place. Draw a red or green rectangle accordingly
-export const checkCorrectPosition = (results, outputCanvasRef) => {
+// check Landmark results to see if person is in place according to front or side measurement state.
+export const checkCorrectPosition = (
+  results,
+  outputCanvasRef,
+  positionToCheck
+) => {
   if (!results.poseLandmarks) return false;
+  const nose = results.poseLandmarks[0];
   const leftHand = results.poseLandmarks[15];
   const rightHand = results.poseLandmarks[16];
-  const nose = results.poseLandmarks[0];
+  const leftShoulder = results.poseLandmarks[11];
+  const rightShoulder = results.poseLandmarks[12];
   const leftFoot = results.poseLandmarks[27];
   const rightFoot = results.poseLandmarks[28];
   const w = outputCanvasRef.current.width;
@@ -117,22 +123,17 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   // const rFootRange = [0.49, 0.56, 0.89, 0.98];
 
   // reference position for hands (nose) and feet inside the screen
-  const handsRange = [0.35, 0.65];
+  const handsRange = [0.35, 0.65]; //for FRONT check
   const noseMaxY = 0.22;
   const feetMinY = 0.8;
 
-  // to draw a colored border (doesn't work, it replaces the ghost)
-  // const drawBorder = (color) => {
-  //   const outputCanvasElement = outputCanvasRef.current;
-  //   outputCanvasElement.width = w;
-  //   outputCanvasElement.height = h;
-  //   const ctx = outputCanvasElement.getContext("2d");
-  //   ctx.globalCompositeOperation = "destination-atop";
-
-  //   ctx.strokeStyle = color;
-  //   ctx.lineWidth = 15;
-  //   ctx.strokeRect(0, 0, w, h);
-  // };
+  // get an averaged x axis to check correct side position
+  const xAxis =
+    (results.poseLandmarks[11].x +
+      results.poseLandmarks[12].x +
+      results.poseLandmarks[27].x +
+      results.poseLandmarks[28].x) /
+    4;
 
   // if all hands, nose and feet are on screen, check their position to mimic the ghost
   if (
@@ -143,7 +144,8 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
     nose.visibility < 0.7
   ) {
   } else if (
-    //check for positions
+    //check for FRONT position
+    positionToCheck === "FRONT" &&
     handsRange[0] < rightHand.x &&
     rightHand.x < 0.5 &&
     0.5 < leftHand.x &&
@@ -152,7 +154,21 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
     leftFoot.y > feetMinY &&
     rightFoot.y > feetMinY
   ) {
-    console.log("Right position");
+    console.log("Right FRONT position");
+    return true;
+  } else if (
+    //check for SIDE position
+    positionToCheck === "SIDE" &&
+    xAxis > 0.4 &&
+    xAxis < 0.6 && // standing in the center of the screen
+    Math.abs(leftShoulder.x - rightShoulder.x) < 0.1 && // body not rotated
+    leftHand.x < xAxis * 1.2 &&
+    leftHand.x > xAxis * 0.8 && // not raising left hand
+    nose.y < noseMaxY && // body fitting in the screen
+    leftFoot.y > feetMinY &&
+    rightFoot.y > feetMinY
+  ) {
+    console.log("Right SIDE position");
     return true;
   }
   return false;
@@ -177,15 +193,15 @@ export const getMeasures = (results) => {
   const anklesAverage =
     (results.poseLandmarks[29].y + results.poseLandmarks[30].y) / 2;
 
-  const height = (anklesAverage - eyesAverage) * 1.07;
+  const heightInPx = (anklesAverage - eyesAverage) * 1.07;
   // El 1.07 sale de adicionar la distancia que hay entre los ojos y la cima de la cabeza.
 
-  const str = `Altura: ${height.toFixed(2)}, De mano a mano ${(
+  const str = `Altura: ${heightInPx.toFixed(2)}, De mano a mano ${(
     (results.poseLandmarks[19].x - results.poseLandmarks[20].x) *
     1.04
   ).toFixed(2)}`;
 
-  console.log(str);
+  // console.log(str);
 
-  return height;
+  return [anklesAverage, eyesAverage, heightInPx];
 };

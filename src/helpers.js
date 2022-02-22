@@ -1,3 +1,6 @@
+import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
+import { POSE_CONNECTIONS } from "@mediapipe/pose";
+
 // Receives an array of contour points and returns an array
 // of the same lenght with smoothed contour
 // starting variance might be 0.85
@@ -23,10 +26,10 @@ export const smooth = (array, variance) => {
 };
 
 // Draw contour
-export const drawContour = (canvasCtx, x, y) => {
-  canvasCtx.globalCompositeOperation = "source-over";
+export const drawContour = (canvasCtx, x, y, color) => {
+  // canvasCtx.globalCompositeOperation = "source-over";
   canvasCtx.beginPath();
-  canvasCtx.strokeStyle = "blue";
+  canvasCtx.strokeStyle = color;
   canvasCtx.moveTo(x[0], y[0]);
   for (let i = 1; i < x.length; i++) {
     canvasCtx.lineTo(x[i], y[i]);
@@ -35,18 +38,22 @@ export const drawContour = (canvasCtx, x, y) => {
 };
 
 // Draws a contour on canvas from the mask that results after body segmentation
-export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
+// Returns normalized silhouette points
+export const drawContourOnCanvas = (inputCanvasRef, results) => {
   const width = inputCanvasRef.current.width;
   const height = inputCanvasRef.current.height;
-  // Get image data, for now, from a file and through an invisible canvas
-  // to convert the image to manipulable data
-  // let invisibleCanvas = document.createElement("canvas");
-  // let invisibleCtx = invisibleCanvas.getContext("2d");
-
   const canvasElement = inputCanvasRef.current;
   const inputCanvasCtx = canvasElement.getContext("2d");
-  // inputCanvasCtx.save();
-  let imageData = inputCanvasCtx.getImageData(0, 0, width, height);
+
+  // Draw segmentation mask in an invisible canvas to then process and get the silhouette
+  let invisibleCanvas = document.createElement("canvas");
+  let invisibleCtx = invisibleCanvas.getContext("2d");
+  // invisibleCtx.globalCompositeOperation = "destination-atop";
+  // invisibleCtx.globalCompositeOperation = "source-over";
+
+  invisibleCtx.drawImage(results.segmentationMask, 0, 0, width, height);
+
+  let imageData = invisibleCtx.getImageData(0, 0, width, height);
   // // 2. Get contour coordinates
   // make the image binary (1 represents person, 0 background)
   let binaryImageData = [];
@@ -68,7 +75,7 @@ export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
 
   // Scan every row to find points of the silhouette (and distance between them). I search first and last '1' in every row
   let xLeft = [];
-  let xRigth = [];
+  let xRight = [];
   let distanceInPixels = [];
   let y = [];
 
@@ -77,24 +84,40 @@ export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
     if (index !== -1) {
       // found person, get the position and distance of borders of the silhouette
       xLeft.push(index);
-      xRigth.push(binaryImage2D[row].lastIndexOf(0));
+      xRight.push(binaryImage2D[row].lastIndexOf(0));
       distanceInPixels[row] =
-        xRigth[xRigth.length - 1] - xLeft[xLeft.length - 1];
+        xRight[xRight.length - 1] - xLeft[xLeft.length - 1];
       y.push(row);
     }
   }
   // smooth contour
-  // const xLeftSmoothed = smooth(xLeft,0.85)
-  // const xRightSmoothed = smooth(xRigth,0.85)
+  // const xLeftSmoothed = smooth(xLeft, 0.85);
+  // const xRightSmoothed = smooth(xRight,0.85)
 
   // 3. Draw contour in a different canvas to check
-  const outputCanvasElement = outputCanvasRef.current;
-  outputCanvasElement.width = width;
-  outputCanvasElement.height = height;
-  const canvasCtx = outputCanvasElement.getContext("2d");
-  canvasCtx.globalCompositeOperation = "source-over";
-  drawContour(canvasCtx, xLeft, y);
-  drawContour(canvasCtx, xRigth, y);
+  const invertedXLeft = xLeft.map((x) => width - x);
+  const invertedXRight = xRight.map((x) => width - x);
+
+  inputCanvasCtx.globalCompositeOperation = "destination-atop";
+  drawContour(inputCanvasCtx, invertedXLeft, y, "blue");
+  inputCanvasCtx.globalCompositeOperation = "source-over";
+  drawContour(inputCanvasCtx, invertedXRight, y, "red");
+  inputCanvasCtx.globalCompositeOperation = "source-over";
+  drawConnectors(inputCanvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
+    color: "#00FF00",
+    lineWidth: 1,
+  });
+  drawLandmarks(inputCanvasCtx, results.poseLandmarks, {
+    color: "#FF0000",
+    lineWidth: 1,
+  });
+  inputCanvasCtx.restore();
+
+  const silhouetteXLeft = xLeft.map((x) => x / width);
+  const silhouetteXRight = xRight.map((x) => x / width);
+  const silhouetteY = y.map((y) => y / height);
+
+  return [silhouetteXLeft, silhouetteXRight, silhouetteY];
 };
 
 // check Landmark results to see if person is in place according to front or side measurement state.
@@ -132,14 +155,30 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
     rightFoot.visibility > 0.7 &&
     nose.visibility > 0.7;
 
+  // for standing in front with arms down
+  // Math.abs(leftShoulder.x - rightShoulder.x) > 0.1 && // body facing camera
+  // rightHand.visibility > 0.7 && // right and left hands visible and in 2nd and 3rd vertical quarters
+  // leftHand.visibility > 0.7 &&
+  // handsRange[0] < rightHand.x &&
+  // rightHand.x < 0.5 &&
+  // 0.5 < leftHand.x &&
+  // leftHand.x < handsRange[1] &&
+  // nose.y > 0.1 &&
+  // nose.y < noseMaxY &&
+  // leftFoot.y > feetMinY &&
+  // leftFoot.y < 0.95 &&
+  // rightFoot.y > feetMinY &&
+  // rightFoot.y < 0.95;
+
+  // arms behind head
   const frontPosition =
     Math.abs(leftShoulder.x - rightShoulder.x) > 0.1 && // body facing camera
-    rightHand.visibility > 0.7 && // right and left hands visible and in 2nd and 3rd vertical quarters
-    leftHand.visibility > 0.7 &&
-    handsRange[0] < rightHand.x &&
-    rightHand.x < 0.5 &&
-    0.5 < leftHand.x &&
-    leftHand.x < handsRange[1] &&
+    Math.abs(rightHand.x - nose.x) < 0.1 &&
+    Math.abs(leftHand.x - nose.x) < 0.1 && // hands close to head (hopefully behind the head)
+    rightHand.y > 0.1 &&
+    rightHand.y < noseMaxY &&
+    leftHand.y > 0.1 &&
+    leftHand.y < noseMaxY && // both hands at the height of the nose
     nose.y > 0.1 &&
     nose.y < noseMaxY &&
     leftFoot.y > feetMinY &&
@@ -165,16 +204,35 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   if (!fullBodyInScreen) return null;
 
   if (frontPosition) {
-    console.log("Right FRONT position");
     return "FRONT";
   } else if (sidePosition) {
-    console.log("Right SIDE position");
     return "SIDE";
   }
   return null;
 };
 
-export const getMeasures = (results) => {
+export const getMeasurements = (
+  frontLandmarks,
+  sideLandmarks,
+  silhouetteXLeft,
+  silhouetteXRight,
+  silhouetteY,
+  results
+) => {
+  // AQUI VOY!!!! -> Tengo que mapear los puntos de silueta con los puntos promedio de chest, waist and hip
+  // 1. get an average of the landmarks
+  const frontAvgSilhouette = [];
+
+  // get 1 point avg frontLandmarks.map((medicion)=>medicion.poseLandmarks[0].x).reduce((prev,acc)=>prev+acc,0)/frontLandmarks.length
+
+  // 2a. Get chest, waist and hip measurement in px in both sides.
+
+  // 2b. Get the perimeter in every part in px
+
+  // 3. Get the heigth in pixels
+
+  // 4. Convert everything to cm
+
   // TO FIX: No me funcionar con reduce... NaN
   // const eyesAverage =
   //   results.poseLandmarks.slice(1, 7).reduce((prev, acc) => prev.y + acc.y, 0) /

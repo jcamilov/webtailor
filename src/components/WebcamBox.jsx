@@ -1,8 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
-import { checkCorrectPosition, getMeasures } from "../helpers";
+import {
+  checkCorrectPosition,
+  getMeasurements,
+  drawContourOnCanvas,
+} from "../helpers";
 import ghostFront from "../assets/ghostFront.png";
 import ghostSide from "../assets/ghostSide.png";
+import ok from "../assets/ok.png";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
 import * as cam from "@mediapipe/camera_utils";
@@ -16,6 +21,9 @@ function WebcamBox() {
   const [positionToCheck, setPositionToCheck] = useState("FRONT");
   const [frontLandmarks, setFrontLandmarks] = useState([]);
   const [sideLandmarks, setSideLandmarks] = useState([]);
+  let silhouetteXLeft = null;
+  let silhouetteXRight = null;
+  let silhouetteY = null;
 
   // Position range for every POI (indicates the full body is visible and in position)
   // [xMin , xMax , yMin , yMax]
@@ -32,13 +40,19 @@ function WebcamBox() {
       // check for correct position and add results to the appropiate position
       const position = checkCorrectPosition(results, canvasRef);
       // null means wrong position
-      if (position === "FRONT") {
+      if (position === "FRONT" && frontLandmarks.length < 10) {
         setFrontLandmarks((oldLandmarks) => [...oldLandmarks, results]);
         setCorrectPosition(true);
-      } else if (position === "SIDE") {
+      } else if (position === "SIDE" && sideLandmarks.length < 10) {
         setSideLandmarks((oldLandmarks) => [...oldLandmarks, results]);
         setCorrectPosition(true);
       }
+
+      // Get normalized silhouette points and draw it in canvas
+      [silhouetteXLeft, silhouetteXRight, silhouetteY] = drawContourOnCanvas(
+        canvasRef,
+        results
+      );
 
       // const [anklesAverage, eyesAverage, heightInPx] = getMeasures(results);
       // // draw some measures:
@@ -169,20 +183,46 @@ function WebcamBox() {
 
   // Executes on every correct position stored to be analized
   useEffect(() => {
-    // check if already FRONT position was analized and it is correct, then change state to analize SIDE position
-    if (frontLandmarks.length > 4) {
-      if (sideLandmarks.length > 4) {
-        // done collecting both right FRONT and SIDE position landmarks
-        console.log(
-          "get the real measurements by averaging and converting to cm"
-        );
-        console.log(frontLandmarks);
-      }
-      setPositionToCheck("SIDE");
-      console.log("Front side OK, now turn rigth 90°.");
-      console.log(frontLandmarks);
+    const img = new Image();
+    if (positionToCheck === "SIDE") {
+      img.src = ghostSide;
     }
-  }, [frontLandmarks, sideLandmarks]);
+    if (positionToCheck === "DONE!") {
+      img.src = ok;
+    }
+    img.onload = () => {
+      const canvasElement = canvasRef.current;
+      const w = canvasRef.current.width;
+      const h = canvasRef.current.height;
+      canvasElement.width = w;
+      canvasElement.height = h;
+      const canvasCtx = canvasElement.getContext("2d");
+      canvasCtx.globalAlpha = 0.7;
+      canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
+    };
+
+    if (frontLandmarks.length < 6) {
+      setPositionToCheck("FRONT");
+    } else if (sideLandmarks.length < 6) {
+      setPositionToCheck("SIDE");
+      console.log("Front side OK, Trying to capture SIDE position");
+    } else {
+      // done collecting both right FRONT and SIDE position landmarks
+      setPositionToCheck("DONE!");
+      // [DEBUG] We store results in localstorage to avoid repeating standing in front of the camera
+      localStorage.setItem("frontResults", JSON.stringify(frontLandmarks));
+      localStorage.setItem("sideResults", JSON.stringify(sideLandmarks));
+
+      // map silhouette points to landmarks and return measurements of interest
+      getMeasurements(
+        frontLandmarks,
+        sideLandmarks,
+        silhouetteXLeft,
+        silhouetteXRight,
+        silhouetteY
+      );
+    }
+  }, [frontLandmarks, sideLandmarks, positionToCheck]);
 
   // Runs only when mounted (shows camera and ghost and starts processing right away)
   useEffect(() => {
@@ -275,7 +315,9 @@ function WebcamBox() {
   return (
     <div className="container mx-auto">
       <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
-        {correctPosition ? "correct" : "wrong"} {positionToCheck} position
+        {positionToCheck === "DONE!"
+          ? positionToCheck
+          : `checking ${positionToCheck} position...`}
       </h1>
       <div className="container mx-auto text-center" position="absolute">
         <Webcam

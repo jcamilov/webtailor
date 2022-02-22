@@ -98,12 +98,9 @@ export const drawContourOnCanvas = (inputCanvasRef, outputCanvasRef) => {
 };
 
 // check Landmark results to see if person is in place according to front or side measurement state.
-export const checkCorrectPosition = (
-  results,
-  outputCanvasRef,
-  positionToCheck
-) => {
+export const checkCorrectPosition = (results, outputCanvasRef) => {
   if (!results.poseLandmarks) return false;
+  // bare in mind that the image is mirrored
   const nose = results.poseLandmarks[0];
   const leftHand = results.poseLandmarks[15];
   const rightHand = results.poseLandmarks[16];
@@ -114,17 +111,9 @@ export const checkCorrectPosition = (
   const w = outputCanvasRef.current.width;
   const h = outputCanvasRef.current.height;
 
-  // Position range for every POI (indicates the full body is visible and in position)
-  // [xMin , xMax , yMin , yMax]
-  // const lHandRange = [0.34, 0.43, 0.03, 0.14];
-  // const rHandRange = [0.54, 0.64, 0.03, 0.14];
-  // const noseRange = [0.45, 0.51, 0.14, 0.21];
-  // const lFootRange = [0.41, 0.49, 0.89, 0.98];
-  // const rFootRange = [0.49, 0.56, 0.89, 0.98];
-
   // reference position for hands (nose) and feet inside the screen
   const handsRange = [0.35, 0.65]; //for FRONT check
-  const noseMaxY = 0.22;
+  const noseMaxY = 0.25;
   const feetMinY = 0.8;
 
   // get an averaged x axis to check correct side position
@@ -135,43 +124,54 @@ export const checkCorrectPosition = (
       results.poseLandmarks[28].x) /
     4;
 
-  // if all hands, nose and feet are on screen, check their position to mimic the ghost
-  if (
-    leftHand.visibility < 0.7 ||
-    rightHand.visibility < 0.7 ||
-    leftFoot.visibility < 0.7 ||
-    rightFoot.visibility < 0.7 ||
-    nose.visibility < 0.7
-  ) {
-  } else if (
-    //check for FRONT position
-    positionToCheck === "FRONT" &&
+  // conditionals for position in screen
+  const fullBodyInScreen =
+    leftShoulder.visibility > 0.7 &&
+    rightShoulder.visibility > 0.7 &&
+    leftFoot.visibility > 0.7 &&
+    rightFoot.visibility > 0.7 &&
+    nose.visibility > 0.7;
+
+  const frontPosition =
+    Math.abs(leftShoulder.x - rightShoulder.x) > 0.1 && // body facing camera
+    rightHand.visibility > 0.7 && // right and left hands visible and in 2nd and 3rd vertical quarters
+    leftHand.visibility > 0.7 &&
     handsRange[0] < rightHand.x &&
     rightHand.x < 0.5 &&
     0.5 < leftHand.x &&
     leftHand.x < handsRange[1] &&
+    nose.y > 0.1 &&
     nose.y < noseMaxY &&
     leftFoot.y > feetMinY &&
-    rightFoot.y > feetMinY
-  ) {
-    console.log("Right FRONT position");
-    return true;
-  } else if (
-    //check for SIDE position
-    positionToCheck === "SIDE" &&
+    leftFoot.y < 0.95 &&
+    rightFoot.y > feetMinY &&
+    rightFoot.y < 0.95;
+
+  const sidePosition =
     xAxis > 0.4 &&
     xAxis < 0.6 && // standing in the center of the screen
-    Math.abs(leftShoulder.x - rightShoulder.x) < 0.1 && // body not rotated
-    leftHand.x < xAxis * 1.2 &&
-    leftHand.x > xAxis * 0.8 && // not raising left hand
-    nose.y < noseMaxY && // body fitting in the screen
+    leftHand.visibility > 0.6 &&
+    rightHand.visibility < 0.5 && // rigth hand must be occluded
+    Math.abs(leftShoulder.x - rightShoulder.x) < 0.1 && // body not facing camera (approx. 90° rotated)
+    leftHand.x < xAxis + 0.2 &&
+    leftHand.x > xAxis - 0.2 && // not raising left hand
+    nose.y > 0.1 &&
+    nose.y < noseMaxY &&
     leftFoot.y > feetMinY &&
-    rightFoot.y > feetMinY
-  ) {
+    leftFoot.y < 0.95 &&
+    rightFoot.y > feetMinY &&
+    rightFoot.y < 0.95;
+
+  if (!fullBodyInScreen) return null;
+
+  if (frontPosition) {
+    console.log("Right FRONT position");
+    return "FRONT";
+  } else if (sidePosition) {
     console.log("Right SIDE position");
-    return true;
+    return "SIDE";
   }
-  return false;
+  return null;
 };
 
 export const getMeasures = (results) => {

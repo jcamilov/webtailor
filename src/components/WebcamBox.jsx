@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
 import { checkCorrectPosition, getMeasures } from "../helpers";
 import ghostFront from "../assets/ghostFront.png";
@@ -6,16 +6,16 @@ import ghostSide from "../assets/ghostSide.png";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
 import * as cam from "@mediapipe/camera_utils";
-import CameraContext from "../contexts/CameraContext";
 
-function WebcamBox({ processing }) {
+function WebcamBox() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const silhouetteRef = useRef(null);
   let camera = null;
   const [correctPosition, setCorrectPosition] = useState(false);
-  const { positionToCheck, setThePositionToCheck, landmarks, addLandmarks } =
-    useContext(CameraContext);
+  const [positionToCheck, setPositionToCheck] = useState("FRONT");
+  const [frontLandmarks, setFrontLandmarks] = useState([]);
+  const [sideLandmarks, setSideLandmarks] = useState([]);
 
   // Position range for every POI (indicates the full body is visible and in position)
   // [xMin , xMax , yMin , yMax]
@@ -28,34 +28,29 @@ function WebcamBox({ processing }) {
     const width = webcamRef.current.video.videoWidth;
     const height = webcamRef.current.video.videoHeight;
 
-    if (checkCorrectPosition(results, canvasRef, positionToCheck)) {
-      addLandmarks(results, positionToCheck);
-      if (positionToCheck === "FRONT" && landmarks.front.length > 4) {
-        setThePositionToCheck("SIDE");
-        console.log("Front side OK, now turn rigth 90°.");
-        console.log(landmarks);
-      } else if (positionToCheck === "SIDE" && landmarks.side.length > 4) {
-        // get the real measurements by averaging and converting to cm
-        console.log(landmarks);
-      }
-    }
-
     if (results.poseLandmarks) {
-      const [anklesAverage, eyesAverage, heightInPx] = getMeasures(results);
+      // check for correct position and add results to the appropiate position
+      const position = checkCorrectPosition(results, canvasRef);
+      // null means wrong position
+      if (position === "FRONT") {
+        setFrontLandmarks((oldLandmarks) => [...oldLandmarks, results]);
+        setCorrectPosition(true);
+      } else if (position === "SIDE") {
+        setSideLandmarks((oldLandmarks) => [...oldLandmarks, results]);
+        setCorrectPosition(true);
+      }
 
-      // draw some measures:
-      const canvasElement = canvasRef.current;
-      const w = canvasRef.current.width;
-      const h = canvasRef.current.height;
-      canvasElement.width = w;
-      canvasElement.height = h;
-      const canvasCtx = canvasElement.getContext("2d");
-
-      canvasCtx.strokeStyle = "red";
-      canvasCtx.lineWidth = 1;
-      canvasCtx.globalAlpha = 1;
-      canvasCtx.beginPath();
-
+      // const [anklesAverage, eyesAverage, heightInPx] = getMeasures(results);
+      // // draw some measures:
+      // const canvasElement = canvasRef.current;
+      // const w = canvasRef.current.width;
+      // const h = canvasRef.current.height;
+      // canvasElement.width = w;
+      // canvasElement.height = h;
+      // const canvasCtx = canvasElement.getContext("2d");
+      // canvasCtx.strokeStyle = "red";
+      // canvasCtx.lineWidth = 1;
+      // canvasCtx.globalAlpha = 1;
       // [DEBUG] vertical line
       // get an averaged x axis to check correct side position
       // const xAxis =
@@ -64,43 +59,42 @@ function WebcamBox({ processing }) {
       //     results.poseLandmarks[27].x +
       //     results.poseLandmarks[28].x) /
       //   4;
-
       // canvasCtx.moveTo(xAxis * w, 0);
       // canvasCtx.lineTo(xAxis * w, h);
       // canvasCtx.stroke();
-
-      // // [DEBUG] Draw shoulders and its difference in x.
+      // // [DEBUG] Draw some landmarks
       // canvasCtx.beginPath();
       // canvasCtx.arc(
-      //   results.poseLandmarks[11].x * w,
-      //   results.poseLandmarks[11].y * h,
+      //   w - results.poseLandmarks[16].x * w,
+      //   results.poseLandmarks[16].y * h,
       //   5,
       //   0,
       //   2 * Math.PI
       // );
       // canvasCtx.fill();
       // canvasCtx.stroke();
-
       // canvasCtx.strokeStyle = "green";
       // canvasCtx.beginPath();
       // canvasCtx.arc(
-      //   results.poseLandmarks[12].x * w,
-      //   results.poseLandmarks[12].y * h,
+      //   w - results.poseLandmarks[15].x * w,
+      //   results.poseLandmarks[15].y * h,
       //   5,
       //   0,
       //   2 * Math.PI
       // );
       // canvasCtx.fill();
       // canvasCtx.stroke();
-
       // canvasCtx.font = "bold 12px Comic Sans MS";
       // canvasCtx.fillStyle = "red";
       // canvasCtx.fillText(
-      //   "Ancho: " +
-      //     Math.abs(
-      //       results.poseLandmarks[11].x - results.poseLandmarks[12].x
-      //     ).toFixed(2),
-      //   10,
+      //   "Left: " + results.poseLandmarks[16].visibility.toFixed(2),
+      //   5,
+      //   15
+      // );
+      // canvasCtx.fillStyle = "green";
+      // canvasCtx.fillText(
+      //   "Right: " + results.poseLandmarks[15].visibility.toFixed(2),
+      //   5,
       //   25
       // );
     }
@@ -173,33 +167,43 @@ function WebcamBox({ processing }) {
     // }
   }
 
+  // Executes on every correct position stored to be analized
+  useEffect(() => {
+    // check if already FRONT position was analized and it is correct, then change state to analize SIDE position
+    if (frontLandmarks.length > 4) {
+      if (sideLandmarks.length > 4) {
+        // done collecting both right FRONT and SIDE position landmarks
+        console.log(
+          "get the real measurements by averaging and converting to cm"
+        );
+        console.log(frontLandmarks);
+      }
+      setPositionToCheck("SIDE");
+      console.log("Front side OK, now turn rigth 90°.");
+      console.log(frontLandmarks);
+    }
+  }, [frontLandmarks, sideLandmarks]);
+
+  // Runs only when mounted (shows camera and ghost and starts processing right away)
   useEffect(() => {
     console.log("renderizando WebcamBox");
-    if (processing) {
-      // Draw a ghostFront and a couple of lines as a reference for the person to position himself
-      const canvasElement = canvasRef.current;
-      const w = canvasRef.current.width;
-      const h = canvasRef.current.height;
-      canvasElement.width = w;
-      canvasElement.height = h;
-      const canvasCtx = canvasElement.getContext("2d");
-      canvasCtx.globalAlpha = 0.7;
-      const img = new Image();
-      img.src =
-        positionToCheck === "FRONT"
-          ? ghostFront
-          : positionToCheck === "SIDE"
-          ? ghostSide
-          : "";
-      img.onload = () => {
-        canvasCtx.drawImage(
-          img,
-          0,
-          0,
-          canvasElement.width,
-          canvasElement.height
-        );
-      };
+    // Draw a ghostFront and a couple of lines as a reference for the person to position himself
+    const canvasElement = canvasRef.current;
+    const w = canvasRef.current.width;
+    const h = canvasRef.current.height;
+    canvasElement.width = w;
+    canvasElement.height = h;
+    const canvasCtx = canvasElement.getContext("2d");
+    canvasCtx.globalAlpha = 0.7;
+    const img = new Image();
+    img.src =
+      positionToCheck === "FRONT"
+        ? ghostFront
+        : positionToCheck === "SIDE"
+        ? ghostSide
+        : "";
+    img.onload = () => {
+      canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
 
       // draw the lines to guide correct position
       // canvasCtx.strokeStyle = "blue";
@@ -245,24 +249,39 @@ function WebcamBox({ processing }) {
 
       camera = new cam.Camera(webcamRef.current.video, {
         onFrame: async () => {
-          await pose.send({ image: webcamRef.current.video });
+          try {
+            await pose.send({ image: webcamRef.current.video });
+          } catch (e) {
+            console.log(e);
+          }
         },
         width: 640,
         height: 480,
       });
       camera.start();
-    }
-  }, [processing]);
+    };
+
+    // return () => {
+    //   // Stop the camera
+    //   (() => {
+    //     let stream = webcamRef.current.stream;
+    //     const tracks = stream.getTracks();
+    //     tracks.forEach((track) => track.stop());
+    //     console.log("Stopping camera...");
+    //   })();
+    // };
+  }, []);
 
   return (
     <div className="container mx-auto">
-      <h1 className="font-bold text-center mx-auto text-lg text-red-800">
+      <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
         {correctPosition ? "correct" : "wrong"} {positionToCheck} position
       </h1>
       <div className="container mx-auto text-center" position="absolute">
         <Webcam
           ref={webcamRef}
           muted={true}
+          mirrored={true}
           className="mx-auto"
           style={{
             position: "absolute",
@@ -276,23 +295,21 @@ function WebcamBox({ processing }) {
             height: 480,
           }}
         />
-        {processing && (
-          <canvas
-            ref={canvasRef}
-            className="mx-auto"
-            style={{
-              position: "absolute",
-              // marginLeft: "auto",
-              // marginRight: "auto",
-              left: 0,
-              right: 0,
-              textAlign: "center",
-              zindex: 8,
-              width: 640,
-              height: 480,
-            }}
-          />
-        )}
+        <canvas
+          ref={canvasRef}
+          className="mx-auto"
+          style={{
+            position: "absolute",
+            // marginLeft: "auto",
+            // marginRight: "auto",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            zindex: 8,
+            width: 640,
+            height: 480,
+          }}
+        />
       </div>
       <canvas
         ref={silhouetteRef}

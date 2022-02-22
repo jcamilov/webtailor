@@ -23,7 +23,7 @@ export const CameraProvider = ({ children }) => {
   };
 
   const setThePositionToCheck = (newState) => {
-    setPositionToCheck(newState);
+    setPositionToCheck(() => newState);
   };
 
   return (

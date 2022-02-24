@@ -1,8 +1,12 @@
 import React, { useEffect, useContext } from "react";
-import CameraContext, { CameraProvider } from "../contexts/CameraContext";
+import MeasurementsContext from "../contexts/MeasurementsContext";
 
 function InputForm() {
-  const { processing, setTheProcessing } = useContext(CameraContext);
+  const { height, setTheHeight } = useContext(MeasurementsContext);
+
+  const onChange = () => {
+    setTheHeight(height);
+  };
 
   useEffect(() => {
     console.log("renderizando InputForm");
@@ -16,6 +20,7 @@ function InputForm() {
           type="text"
           placeholder="175"
           className="input input-bordered input-info input-sm w-1/4 mx-auto text-center"
+          onChange={onChange}
         ></input>
       </div>
     </div>

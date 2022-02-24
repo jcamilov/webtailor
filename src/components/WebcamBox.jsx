@@ -1,16 +1,17 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import Webcam from "react-webcam";
 import {
   checkCorrectPosition,
-  getMeasurements,
-  drawContourOnCanvas,
+  getHeightInPx,
+  getTorsoMeasurementsInPx,
 } from "../helpers";
 import ghostFront from "../assets/ghostFront.png";
 import ghostSide from "../assets/ghostSide.png";
 import ok from "../assets/ok.png";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
-import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
+// import { drawLandmarks, drawConnectors } from "@mediapipe/drawing_utils";
 import * as cam from "@mediapipe/camera_utils";
+import MeasurementsContext from "../contexts/MeasurementsContext";
 
 function WebcamBox() {
   const webcamRef = useRef(null);
@@ -20,10 +21,24 @@ function WebcamBox() {
   const [correctPosition, setCorrectPosition] = useState(false);
   const [positionToCheck, setPositionToCheck] = useState("FRONT");
   const [frontLandmarks, setFrontLandmarks] = useState([]);
-  const [sideLandmarks, setSideLandmarks] = useState([]);
-  let silhouetteXLeft = null;
-  let silhouetteXRight = null;
-  let silhouetteY = null;
+  const [frontChest, setFrontChest] = useState([]);
+  const [sideChest, setSideChest] = useState([]);
+  const [frontWaist, setFrontWaist] = useState([]);
+  const [sideWaist, setSideWaist] = useState([]);
+  const [frontHip, setFrontHip] = useState([]);
+  const [sideHip, setSideHip] = useState([]);
+  const [heightInPx, setHeightInPx] = useState([]);
+  const [avgHeightInPx, setAvgHeightInPx] = useState(0);
+
+  const {
+    chestPerimeter,
+    setTheChestPerimeter,
+    waistPerimeter,
+    setTheWaistPerimeter,
+    hipPerimeter,
+    setTheHipPerimeter,
+    height,
+  } = useContext(MeasurementsContext);
 
   // Position range for every POI (indicates the full body is visible and in position)
   // [xMin , xMax , yMin , yMax]
@@ -35,150 +50,114 @@ function WebcamBox() {
   function onResults(results) {
     const width = webcamRef.current.video.videoWidth;
     const height = webcamRef.current.video.videoHeight;
+    canvasRef.current.width = width;
+    canvasRef.current.height = height;
 
     if (results.poseLandmarks) {
+      // get chest, waist and hip measurements
+      const [chest, waist, hip] = getTorsoMeasurementsInPx(canvasRef, results);
       // check for correct position and add results to the appropiate position
       const position = checkCorrectPosition(results, canvasRef);
       // null means wrong position
-      if (position === "FRONT" && frontLandmarks.length < 10) {
-        setFrontLandmarks((oldLandmarks) => [...oldLandmarks, results]);
+      // if (position === "FRONT" && frontLandmarks.length < 10) {
+      if (position === "FRONT" && frontChest.length < 10) {
+        setFrontChest((oldState) => [...oldState, chest]);
+        setFrontWaist((oldState) => [...oldState, waist]);
+        setFrontHip((oldState) => [...oldState, hip]);
+        const newHeight = getHeightInPx(results);
+        setHeightInPx((oldHeight) => [...oldHeight, newHeight]);
         setCorrectPosition(true);
-      } else if (position === "SIDE" && sideLandmarks.length < 10) {
-        setSideLandmarks((oldLandmarks) => [...oldLandmarks, results]);
+      } else if (position === "SIDE" && sideChest.length < 10) {
+        setSideChest((oldState) => [...oldState, chest]);
+        setSideWaist((oldState) => [...oldState, waist]);
+        setSideHip((oldState) => [...oldState, hip]);
         setCorrectPosition(true);
       }
 
-      // Get normalized silhouette points and draw it in canvas
-      [silhouetteXLeft, silhouetteXRight, silhouetteY] = drawContourOnCanvas(
-        canvasRef,
-        results
+      // All of these just to draw:
+      const canvasElement = canvasRef.current;
+      canvasElement.width = width;
+      canvasElement.height = height;
+      const canvasCtx = canvasElement.getContext("2d");
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - chest.left.x * width,
+        chest.left.y * height,
+        3,
+        0,
+        2 * Math.PI
       );
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - chest.right.x * width,
+        chest.right.y * height,
+        3,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - waist.left.x * width,
+        waist.left.y * height,
+        3,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - waist.right.x * width,
+        waist.right.y * height,
+        3,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - hip.left.x * width,
+        hip.left.y * height,
+        3,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width - hip.right.x * width,
+        hip.right.y * height,
+        3,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
 
-      // const [anklesAverage, eyesAverage, heightInPx] = getMeasures(results);
-      // // draw some measures:
-      // const canvasElement = canvasRef.current;
-      // const w = canvasRef.current.width;
-      // const h = canvasRef.current.height;
-      // canvasElement.width = w;
-      // canvasElement.height = h;
-      // const canvasCtx = canvasElement.getContext("2d");
-      // canvasCtx.strokeStyle = "red";
-      // canvasCtx.lineWidth = 1;
-      // canvasCtx.globalAlpha = 1;
-      // [DEBUG] vertical line
-      // get an averaged x axis to check correct side position
-      // const xAxis =
-      //   (results.poseLandmarks[11].x +
-      //     results.poseLandmarks[12].x +
-      //     results.poseLandmarks[27].x +
-      //     results.poseLandmarks[28].x) /
-      //   4;
-      // canvasCtx.moveTo(xAxis * w, 0);
-      // canvasCtx.lineTo(xAxis * w, h);
-      // canvasCtx.stroke();
-      // // [DEBUG] Draw some landmarks
-      // canvasCtx.beginPath();
-      // canvasCtx.arc(
-      //   w - results.poseLandmarks[16].x * w,
-      //   results.poseLandmarks[16].y * h,
-      //   5,
-      //   0,
-      //   2 * Math.PI
-      // );
-      // canvasCtx.fill();
-      // canvasCtx.stroke();
-      // canvasCtx.strokeStyle = "green";
-      // canvasCtx.beginPath();
-      // canvasCtx.arc(
-      //   w - results.poseLandmarks[15].x * w,
-      //   results.poseLandmarks[15].y * h,
-      //   5,
-      //   0,
-      //   2 * Math.PI
-      // );
-      // canvasCtx.fill();
-      // canvasCtx.stroke();
-      // canvasCtx.font = "bold 12px Comic Sans MS";
-      // canvasCtx.fillStyle = "red";
-      // canvasCtx.fillText(
-      //   "Left: " + results.poseLandmarks[16].visibility.toFixed(2),
-      //   5,
-      //   15
-      // );
-      // canvasCtx.fillStyle = "green";
-      // canvasCtx.fillText(
-      //   "Right: " + results.poseLandmarks[15].visibility.toFixed(2),
-      //   5,
-      //   25
-      // );
+      // drawign height:
+      const anklesAverage =
+        (results.poseLandmarks[29].y + results.poseLandmarks[30].y) / 2;
+      canvasCtx.beginPath();
+      canvasCtx.arc(width * 0.5, anklesAverage * height, 5, 0, 2 * Math.PI);
+      canvasCtx.fill();
+      canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.arc(
+        width * 0.5,
+        (anklesAverage - getHeightInPx(results)) * height,
+        5,
+        0,
+        2 * Math.PI
+      );
+      canvasCtx.fill();
+      canvasCtx.stroke();
     }
-
-    // draw right or wrong position
-    // const canvasElement = canvasRef.current;
-    // const w = canvasRef.current.width;
-    // const h = canvasRef.current.height;
-    // canvasElement.width = w;
-    // canvasElement.height = h;
-    // const canvasCtx = canvasElement.getContext("2d");
-
-    // canvasCtx.font = "50px serif";
-    // canvasCtx.fillText(correctPosition ? "OK" : "WRONG POSITION", 50, 90);
-
-    // draw the segmentation mask and/or silhouette
-    // const canvasElement = canvasRef.current;
-    // const w = canvasRef.current.width;
-    // const h = canvasRef.current.height;
-    // canvasElement.width = w;
-    // canvasElement.height = h;
-    // const canvasCtx = canvasElement.getContext("2d");
-    // canvasCtx.save();
-    // canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    // canvasCtx.drawImage(
-    //   results.segmentationMask,
-    //   0,
-    //   0,
-    //   canvasElement.width,
-    //   canvasElement.height
-    // );
-
-    // //llenar el fondo con negro. Only overwrite existing pixels.
-    // canvasCtx.globalCompositeOperation = "source-in";
-    // canvasCtx.fillStyle = "#000000";
-    // canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-
-    // // drawing mask, landmarks and connectors
-    // if (results.poseLandmarks) {
-    //   // Draw segmentation mask (Only overwrite missing pixels)
-    //   canvasCtx.globalCompositeOperation = "destination-atop";
-    //   canvasCtx.drawImage(
-    //     results.segmentationMask,
-    //     0,
-    //     0,
-    //     canvasElement.width,
-    //     canvasElement.height
-    //   );
-
-    //   // Draw landmarks and connectors
-    //   canvasCtx.globalCompositeOperation = "source-over";
-    //   drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
-    //     color: "#00FF00",
-    //     lineWidth: 2,
-    //   });
-    //   drawLandmarks(canvasCtx, results.poseLandmarks, {
-    //     color: "#FF0000",
-    //     lineWidth: 2,
-    //   });
-    //   canvasCtx.restore();
-    // }
-
-    // // drawing contour over the mask
-    // outputCanvasRef.current.width = width;
-    // outputCanvasRef.current.height = height;
-    // drawContourOnCanvas(canvasRef, outputCanvasRef);
-
-    // // draw red or green border according to wrong or right position
-    // checkCorrectPosition(results, outputCanvasRef);
-    // }
   }
 
   // Executes on every correct position stored to be analized
@@ -201,28 +180,66 @@ function WebcamBox() {
       canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
     };
 
-    if (frontLandmarks.length < 6) {
+    if (frontChest.length < 10) {
       setPositionToCheck("FRONT");
-    } else if (sideLandmarks.length < 6) {
+    } else if (sideChest.length < 10) {
       setPositionToCheck("SIDE");
       console.log("Front side OK, Trying to capture SIDE position");
     } else {
-      // done collecting both right FRONT and SIDE position landmarks
-      setPositionToCheck("DONE!");
-      // [DEBUG] We store results in localstorage to avoid repeating standing in front of the camera
-      localStorage.setItem("frontResults", JSON.stringify(frontLandmarks));
-      localStorage.setItem("sideResults", JSON.stringify(sideLandmarks));
+      // done collecting both right FRONT and SIDE position silhouette points
+      // Get average of measurements and update State for other components to use them
+      const frontalChestDistance =
+        frontChest
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / frontChest.length;
+      const sideChestDistance =
+        sideChest
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / sideChest.length;
 
-      // map silhouette points to landmarks and return measurements of interest
-      getMeasurements(
-        frontLandmarks,
-        sideLandmarks,
-        silhouetteXLeft,
-        silhouetteXRight,
-        silhouetteY
+      const frontalWaistDistance =
+        frontWaist
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / frontWaist.length;
+      const sideWaistDistance =
+        sideWaist
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / sideWaist.length;
+
+      const frontalHipDistance =
+        frontHip
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / frontHip.length;
+      const sideHipDistance =
+        sideHip
+          .map((c) => c.right.x - c.left.x)
+          .reduce((prev, acc) => prev + acc, 0) / sideHip.length;
+
+      const ellipsePerimeter = (largestRadious, smallestRadious) => {
+        // Applying Rumanujan's approximate perimiter of an ellipse
+        // P ≈ π (a + b) [ 1 + (3h) / (10 + √(4 - 3h) ) ], where h = (a - b)^2/(a + b)^2
+        // a being the largest radious
+        const a = largestRadious / 2;
+        const b = smallestRadious / 2;
+        const h = (a - b) ** 2 / (a + b) ** 2;
+        return Math.PI * (a + b) * (1 + (3 * h) / (10 + Math.sqrt(4 - 3 * h)));
+      };
+
+      // [TO IMPOROVE]: I'm multiplying by a (try and error) factor 'cause i'm getting smaller measuremntes than the real ones
+      const chest = ellipsePerimeter(frontalChestDistance, sideChestDistance);
+      setTheChestPerimeter(chest * 1.25);
+      const waist = ellipsePerimeter(frontalWaistDistance, sideWaistDistance);
+      setTheWaistPerimeter(waist * 1.25);
+      const hip = ellipsePerimeter(frontalHipDistance, sideHipDistance);
+      setTheHipPerimeter(hip * 1.2);
+
+      setAvgHeightInPx(
+        heightInPx.reduce((p, a) => p + a, 0) / heightInPx.length
       );
+
+      setPositionToCheck("DONE!");
     }
-  }, [frontLandmarks, sideLandmarks, positionToCheck]);
+  }, [frontChest, sideChest, positionToCheck]);
 
   // Runs only when mounted (shows camera and ghost and starts processing right away)
   useEffect(() => {
@@ -244,31 +261,6 @@ function WebcamBox() {
         : "";
     img.onload = () => {
       canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
-
-      // draw the lines to guide correct position
-      // canvasCtx.strokeStyle = "blue";
-      // canvasCtx.lineWidth = 3;
-      // canvasCtx.beginPath();
-      // canvasCtx.moveTo(0, noseMaxY * h);
-      // canvasCtx.lineTo(w, noseMaxY * h);
-      // canvasCtx.stroke();
-
-      // canvasCtx.beginPath();
-      // canvasCtx.moveTo(0, feetMinY * h);
-      // canvasCtx.lineTo(w, feetMinY * h);
-      // canvasCtx.stroke();
-
-      // canvasCtx.strokeStyle = "red";
-      // canvasCtx.beginPath();
-      // canvasCtx.moveTo(handsRange[0] * w, 0);
-      // canvasCtx.lineTo(handsRange[0] * w, h);
-      // canvasCtx.stroke();
-
-      // canvasCtx.beginPath();
-      // canvasCtx.moveTo(handsRange[1] * w, 0);
-      // canvasCtx.lineTo(handsRange[1] * w, h);
-      // canvasCtx.stroke();
-
       // Set the mediapipe segmentation/pose model
       const pose = new Pose({
         locateFile: (file) => {
@@ -280,7 +272,7 @@ function WebcamBox() {
         modelComplexity: 2,
         smoothLandmarks: true,
         enableSegmentation: true,
-        smoothSegmentation: false,
+        smoothSegmentation: true,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
       });
@@ -314,29 +306,62 @@ function WebcamBox() {
 
   return (
     <div className="container mx-auto">
-      <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
+      <h1 className="font-bold text-center mx-auto text-3xl text-slate-800">
         {positionToCheck === "DONE!"
           ? positionToCheck
           : `checking ${positionToCheck} position...`}
       </h1>
+      {chestPerimeter !== null ? (
+        <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
+          {`Chest perimeter: ${(
+            (chestPerimeter * height) /
+            avgHeightInPx
+          ).toFixed(0)} (in cm)`}
+        </h1>
+      ) : (
+        ""
+      )}
+      {chestPerimeter !== null ? (
+        <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
+          {`Waist perimeter: ${(
+            (waistPerimeter * height) /
+            avgHeightInPx
+          ).toFixed(0)} (in cm)`}
+        </h1>
+      ) : (
+        ""
+      )}
+      {chestPerimeter !== null ? (
+        <h1 className="font-bold text-center mx-auto text-3xl text-red-800">
+          {`Hip perimeter: ${((hipPerimeter * height) / avgHeightInPx).toFixed(
+            0
+          )} (in cm)`}
+        </h1>
+      ) : (
+        ""
+      )}
       <div className="container mx-auto text-center" position="absolute">
-        <Webcam
-          ref={webcamRef}
-          muted={true}
-          mirrored={true}
-          className="mx-auto"
-          style={{
-            position: "absolute",
-            // marginLeft: "auto",
-            // marginRight: "auto",
-            left: 0,
-            right: 0,
-            textAlign: "center",
-            zindex: 9,
-            width: 640,
-            height: 480,
-          }}
-        />
+        {chestPerimeter === null ? (
+          <Webcam
+            ref={webcamRef}
+            muted={true}
+            mirrored={true}
+            className="mx-auto"
+            style={{
+              position: "absolute",
+              // marginLeft: "auto",
+              // marginRight: "auto",
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              zindex: 9,
+              width: 640,
+              height: 480,
+            }}
+          />
+        ) : (
+          ""
+        )}
         <canvas
           ref={canvasRef}
           className="mx-auto"

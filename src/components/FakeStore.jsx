@@ -1,7 +1,7 @@
 import React from "react";
 
 function FakeStore() {
-  return <div>FakeStore</div>;
+  return <div>A FakeStore</div>;
 }
 
 export default FakeStore;

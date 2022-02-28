@@ -10,6 +10,7 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   const rightHand = results.poseLandmarks[16];
   const leftShoulder = results.poseLandmarks[11];
   const rightShoulder = results.poseLandmarks[12];
+  const leftHip = results.poseLandmarks[23];
   const leftFoot = results.poseLandmarks[27];
   const rightFoot = results.poseLandmarks[28];
   const w = outputCanvasRef.current.width;
@@ -31,10 +32,8 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
   // conditionals for position in screen
   const fullBodyInScreen =
     leftShoulder.visibility > 0.7 &&
-    rightShoulder.visibility > 0.7 &&
     leftFoot.visibility > 0.7 &&
-    rightFoot.visibility > 0.7 &&
-    nose.visibility > 0.7;
+    nose.visibility > 0.6;
 
   // arms behind head
   const frontPosition =
@@ -57,7 +56,13 @@ export const checkCorrectPosition = (results, outputCanvasRef) => {
     xAxis < 0.6 && // standing in the center of the screen
     leftHand.visibility > 0.6 &&
     rightHand.visibility < 0.5 && // rigth hand must be occluded
-    Math.abs(leftShoulder.x - rightShoulder.x) < 0.1 && // body not facing camera (approx. 90° rotated)
+    // Math.abs(leftShoulder.x - rightShoulder.x) < 0.1 && // body not facing camera (approx. 90° rotated)
+    leftHand.x < xAxis + 0.2 &&
+    leftHand.x > xAxis - 0.2 && // not raising left hand
+    leftShoulder.x < xAxis + 0.15 &&
+    leftShoulder.x > xAxis - 0.15 && // not raising left hand
+    leftHip.x < xAxis + 0.15 &&
+    leftHip.x > xAxis - 0.15 && // not raising left hand
     leftHand.x < xAxis + 0.2 &&
     leftHand.x > xAxis - 0.2 && // not raising left hand
     nose.y > 0.1 &&
@@ -91,8 +96,9 @@ export const getHeightInPx = (results) => {
   const anklesAverage =
     (results.poseLandmarks[29].y + results.poseLandmarks[30].y) / 2;
 
-  const heightInPx = (anklesAverage - eyesAverage) * 1.09;
-  // El 1.07 sale de adicionar la distancia que hay entre los ojos y la cima de la cabeza.
+  const heightInPx = (anklesAverage - eyesAverage) * 1.097;
+  // El 1.09 sale de adicionar la distancia que hay entre los ojos y la cima de la cabeza.
+  // Y además de compensar que de los tobillos al suelo realmente hay 7-9cm
   return heightInPx;
 };
 
@@ -168,21 +174,39 @@ export const getTorsoMeasurementsInPx = (canvasRef, results) => {
 
   // finally search the "x" of the silhouette for every POI in the binary mask
   // TO IMPROVE LATER: we can get three "ys" and average them to better results
-  chest.left.x =
-    binaryMask2D[Number((chest.left.y * height).toFixed(0))].indexOf(0) / width;
-  chest.right.x =
-    binaryMask2D[Number((chest.right.y * height).toFixed(0))].lastIndexOf(0) /
-    width;
-  waist.left.x =
-    binaryMask2D[Number((waist.left.y * height).toFixed(0))].indexOf(0) / width;
-  waist.right.x =
-    binaryMask2D[Number((waist.right.y * height).toFixed(0))].lastIndexOf(0) /
-    width;
-  hip.left.x =
-    binaryMask2D[Number((hip.left.y * height).toFixed(0))].indexOf(0) / width;
-  hip.right.x =
-    binaryMask2D[Number((hip.right.y * height).toFixed(0))].lastIndexOf(0) /
-    width;
+  try {
+    // I average 5 "ys" on every POI to reduce jitter even more
+    // const avgChestX = 0;
+    // for (let i = 0; i < 5; i++) {
+    //   avgChestX =
+    //     avgChestX +
+    //     binaryMask2D[Number((chest.left.y * height + i).toFixed(0))].indexOf(0);
+    // }
+    // avgChestX = Number(avgChestX / 5 / width).toFixed(0);
+
+    chest.left.x =
+      binaryMask2D[Number((chest.left.y * height).toFixed(0))].indexOf(0) /
+      width;
+    chest.right.x =
+      binaryMask2D[Number((chest.right.y * height).toFixed(0))].lastIndexOf(0) /
+      width;
+    waist.left.x =
+      binaryMask2D[Number((waist.left.y * height).toFixed(0))].indexOf(0) /
+      width;
+    waist.right.x =
+      binaryMask2D[Number((waist.right.y * height).toFixed(0))].lastIndexOf(0) /
+      width;
+    hip.left.x =
+      binaryMask2D[Number((hip.left.y * height).toFixed(0))].indexOf(0) / width;
+    hip.right.x =
+      binaryMask2D[Number((hip.right.y * height).toFixed(0))].lastIndexOf(0) /
+      width;
+  } catch (e) {
+    console.log(`No se detectó silueta. ${e.message}`);
+    chest = null;
+    waist = null;
+    hip = null;
+  }
 
   return [chest, waist, hip];
 };

@@ -3,13 +3,13 @@ import ReactDOM from "react-dom";
 import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
-import { CameraProvider } from "./contexts/CameraContext";
+import { MeasurementsProvider } from "./contexts/MeasurementsContext";
 
 ReactDOM.render(
   <React.StrictMode>
-    <CameraProvider>
+    <MeasurementsProvider>
       <App />
-    </CameraProvider>
+    </MeasurementsProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );

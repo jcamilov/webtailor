@@ -10,6 +10,8 @@ export const MeasurementsProvider = ({ children }) => {
   const [hipPerimeterCm, setHipPerimeterCm] = useState(0);
   const [looseness, setLooseness] = useState(0); // 0:tight, 1:regular, 2:loose
   const [processing, setProcessing] = useState(false); // true to start camera and processing
+  const [suggestedSize, setsuggestedSize] = useState("null");
+  const [showFakeStore, setShowFakeStore] = useState(true);
 
   const setTheChestPerimeterCm = (value) => setChestPerimeterCm(value);
   const setTheWaistPerimeterCm = (value) => setWaistPerimeterCm(value);
@@ -17,6 +19,8 @@ export const MeasurementsProvider = ({ children }) => {
   const setTheHeightCm = (value) => setHeightCm(value);
   const setTheLooseness = (value) => setLooseness(value);
   const setTheProcessing = (value) => setProcessing(value);
+  const setTheSuggestedSize = (value) => setsuggestedSize(value);
+  const setTheShowFakeStore = (value) => setShowFakeStore(value);
 
   return (
     <MeasurementsContext.Provider
@@ -27,12 +31,16 @@ export const MeasurementsProvider = ({ children }) => {
         hipPerimeterCm,
         looseness,
         processing,
+        suggestedSize,
+        showFakeStore,
         setTheHeightCm,
         setTheChestPerimeterCm,
         setTheWaistPerimeterCm,
         setTheHipPerimeterCm,
         setTheLooseness,
         setTheProcessing,
+        setTheSuggestedSize,
+        setTheShowFakeStore,
       }}
     >
       {children}

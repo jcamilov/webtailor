@@ -2,8 +2,18 @@ import React, { useContext } from "react";
 import MeasurementsContext from "../contexts/MeasurementsContext";
 
 function ResultingMeasurements() {
-  const { chestPerimeterCm, waistPerimeterCm, hipPerimeterCm } =
-    useContext(MeasurementsContext);
+  const {
+    chestPerimeterCm,
+    waistPerimeterCm,
+    hipPerimeterCm,
+    setTheShowFakeStore,
+    setTheSuggestedSize,
+  } = useContext(MeasurementsContext);
+
+  const onClick = () => {
+    setTheSuggestedSize("m");
+    setTheShowFakeStore(true);
+  };
 
   return (
     <div>
@@ -76,6 +86,10 @@ function ResultingMeasurements() {
         For this item, your best fit is the size
       </h6>
       <h6 className="text-7xl font-bold my-8">M</h6>
+      <button className="btn btn-xs" onClick={onClick}>
+        {" "}
+        Back to item
+      </button>
     </div>
   );
 }
